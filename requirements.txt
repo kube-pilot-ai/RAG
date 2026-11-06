@@ -1,0 +1,2 @@
+python-dotenv>=1.2,<2.0
+qdrant-client>=1.18,<2.0
