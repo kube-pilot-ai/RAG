@@ -112,8 +112,36 @@ recovery; check whether new kills occur. See [memory configuration and OOM examp
 
 ## Using the current assistant
 
-Ask for pods in the affected namespace, then logs and events for the exact pod.
-Request `previous logs` with a container name for a restarted container. Current
-MCP summaries do not include termination reasons, resource limits, historical
-metrics, or node pressure details. Obtain those from an operator before asserting
-an OOM cause. Current tools cannot change memory settings or fix the workload.
+Start with `list_pods(namespace)` to identify the affected container and node.
+Use `get_pod_details(pod_name, namespace)` to inspect `containers`,
+`init_containers`, and `ephemeral_containers`. Each entry provides `state`,
+`last_state`, `restarts`, images, and `resources.requests`/`resources.limits`.
+If present, `allocated_resources` and `reported_resources` are also returned;
+these can help distinguish requested settings from runtime-reported settings.
+A missing status or field is unknown, not evidence of success or zero usage.
+
+Confirm a recorded OOM termination from `state.terminated.reason` or
+`last_state.terminated.reason` equal to `OOMKilled`. Report the associated
+`exit_code`, timestamps, container name, and configured memory limit. A recorded
+OOM kill establishes the termination outcome, not whether the root cause was
+a leak, startup allocation, traffic spike, or node-wide exhaustion. An older
+`last_state` record alone does not prove an ongoing failure; correlate time,
+current readiness, and increasing restarts.
+
+Use `get_pod_logs_and_events(pod_name, namespace, container, previous=True)`
+for the previous instance. This tool also includes `pod_details`, so empty logs
+or missing events do not prevent checking termination state. It preserves logs
+and pod details if event retrieval fails and returns `events_error`. Select a
+named init container when that is the failing component.
+
+For a Deployment, inspect `get_deployment_details(deployment_name, namespace)`
+to compare its template resource settings, replica health, and rollout
+conditions with the actual pod. Pod ownership may point to a ReplicaSet;
+identify the owning Deployment rather than assuming their names are identical.
+Use `get_node_details(node_name)` to inspect `MemoryPressure`, capacity, and
+allocatable resources. Those values are not live memory usage or historical
+peaks. Historical metrics, memory profiles, namespace policies, and node kernel
+OOM evidence still require other monitoring or operator evidence.
+
+The tools are read-only: recommend remediation using retrieved guidance, but
+do not claim to change memory settings, restart a workload, or fix a leak.

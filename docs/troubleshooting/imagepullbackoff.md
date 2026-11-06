@@ -99,8 +99,23 @@ separately; successful image download does not establish application health.
 
 ## Using the current assistant
 
-Ask: `List pods in namespace default`, then `Get logs and events for pod
-example-pod in namespace default`. The current MCP tools expose pod summaries
-and events, but do not expose full pod specifications, registry credentials,
-node networking diagnostics, or workload updates. Request operator evidence
-for those checks. Do not claim a cause or a repair without supporting results.
+Use `list_pods(namespace)` or `get_pod_details(pod_name, namespace)` to inspect
+regular and init containers. Check each container's `image`, `image_pull_policy`,
+`state.waiting.reason`, and `state.waiting.message` for the exact failing image
+and pull error. The pod details include its node, owners, service account,
+conditions, and referenced `image_pull_secrets` names, without Secret values.
+Missing container status means the runtime has not reported it yet.
+
+Use `get_pod_logs_and_events(pod_name, namespace)` for UID-filtered events.
+This also returns `pod_details` when logs cannot be read because the image
+never started. An `events_error` indicates event retrieval failed, not that no
+events occurred. Event absence alone does not rule out a pull failure.
+
+Use `get_deployment_details(deployment_name, namespace)` to compare the desired
+image and rollout health with the affected pod. `get_node_details(node_name)`
+provides node conditions and OS/architecture information for compatibility
+checks. Current tools do not inspect registry credential contents, registry
+permissions, DNS/egress connectivity, or node certificate trust. Ask for
+operator evidence for those checks. Never infer a Secret is valid just because
+its name appears in the pod. Do not claim to repair an image or workload: the
+MCP tools only read cluster information.
